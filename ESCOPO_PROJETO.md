@@ -13,10 +13,6 @@
 5. [Arquitetura do Sistema](#5-arquitetura-do-sistema)
 6. [Estrutura do Repositório](#6-estrutura-do-repositório)
 7. [Roadmap de Implementação (fases e tarefas)](#7-roadmap-de-implementação-fases-e-tarefas)
-8. [Divisão de Tarefas (3 integrantes)](#8-divisão-de-tarefas-3-integrantes)
-9. [Entregáveis](#9-entregáveis)
-10. [Cronograma Sugerido](#10-cronograma-sugerido)
-11. [Glossário](#11-glossário)
 
 ---
 
@@ -30,7 +26,6 @@ A "inteligência" do projeto está em uma regra simples: a célula só produz qu
 - Documento de requisitos e design
 - Diagramas BPMN e OPM
 - Código do CLP (ST + SFC) e algoritmo de decisão
-- Telas e dashboard SCADA + histórico em banco SQL
 - Planta simulada (Factory IO) integrada
 - Apresentação final
 
@@ -50,14 +45,10 @@ Uma peça bruta entra na esteira, passa por uma estação de processamento (que 
 |---|-------|------------------|------------|
 | 1 | **Alimentação** | Sensor de presença (entrada) | Detecta peça bruta na esteira |
 | 2 | **Transporte 1** | Motor da esteira | Leva a peça até a estação |
-| 3 | **Usinagem** | Atuador da estação (ex.: furadeira/prensa) + sensor de posição | Processo de maior consumo; tem tempo de ciclo fixo |
+| 3 | **Usinagem (simulada)** | Atuador da estação (ex.: furadeira/prensa) + sensor de posição | Processo de maior consumo; tem tempo de ciclo fixo |
 | 4 | **Inspeção** | Sensor de qualidade (ex.: óptico/altura) | Aprova ou reprova a peça |
 | 5 | **Separação** | Desviador (pistão) + sensores de saída | Aprovada → saída; reprovada → refugo |
 | 6 | **Saída/Contagem** | Sensor de saída | Conta peças produzidas |
-
-> A estação de usinagem é proposital: é onde o consumo de energia "pesa", então a decisão de produzir agora, adiar ou usar bateria gira em torno do custo desse ciclo.
-
-> **Nota:** o processo é descrito de forma genérica para que a equipe possa adaptá-lo à cena escolhida no Factory IO (uma cena com esteira + estação de processo + separação por sensor atende bem). Se preferirem partir de uma cena pronta, "Sorting by height" ou cenas com estação de processo são bons pontos de partida.
 
 ---
 
@@ -103,13 +94,9 @@ Uma peça bruta entra na esteira, passa por uma estação de processamento (que 
 |--------|---------------------|---------------|
 | Planta (chão de fábrica) | **Factory IO** | Simula a linha física, sensores e atuadores; integra via Modbus/OPC |
 | CLP | **Codesys** | IDE gratuita, suporta ST, SFC e Ladder (IEC 61131-3); driver Modbus/OPC nativo |
-| Supervisório | **ScadaBR** (alternativa: Elipse E3 acadêmico) | Gratuito, telas + dashboards + alarmes + datasources Modbus/SQL |
-| Banco de dados | **MySQL/PostgreSQL** (ou o embarcado do ScadaBR) | Histórico de produção e consumo para auditoria |
 | Modelagem BPMN | **bizagi Modeler / Camunda Modeler** | Gratuitos, exportam BPMN 2.0 |
 | Modelagem OPM | **OPCloud** (ou edição manual em draw.io seguindo a notação) | Ferramenta oficial de OPM; draw.io como alternativa |
 | Comunicação | **Modbus TCP** | Padrão simples e suportado por Factory IO, Codesys e ScadaBR |
-
-> **A confirmar pela equipe na Fase 0:** versão exata de cada software, protocolo final (Modbus vs OPC) e qual banco SQL. Registrar a escolha aqui depois.
 
 ---
 
@@ -134,18 +121,13 @@ Fluxo de informação entre as camadas:
   |  - SFC: sequência da esteira                       |
   |  - Gestão rede/bateria (SOC)                       |
   +---------------------------------------------------+
-        |  Modbus TCP                  ^   Modbus TCP
-        v                              |
-  +---------------------+      +-----------------------+
-  |  Factory IO         |      |  SCADA (ScadaBR)      |
-  |  (planta física:    |      |  - Telas de operação  |
-  |   sensores/atuadores)|     |  - Dashboard energia  |
-  +---------------------+      |  - Alarmes ONS        |
-                              |  - Histórico -> SQL    |
-                              +-----------------------+
-                                         |
-                                         v
-                                  [Banco SQL]
+        |  Modbus TCP                 
+        v                              
+  +---------------------+     
+  |  Factory IO         |     
+  |  (planta física:    |     
+  |   sensores/atuadores)|     
+  +---------------------+     
 ```
 
 ---
@@ -158,25 +140,17 @@ Fluxo de informação entre as camadas:
 ├── ESCOPO_PROJETO.md          # este documento
 ├── docs/
 │   ├── requisitos/            # documento de requisitos detalhado
-│   ├── design/                # documento de design/arquitetura
 │   ├── bpmn/                  # .bpmn + PNG/PDF exportados
-│   ├── opm/                   # diagramas OPM + OPL
-│   └── apresentacao/          # slides finais
+│   └── opm/                   # diagramas OPM + OPL
 ├── clp/
 │   ├── projeto_codesys/       # projeto Codesys
 │   ├── st/                    # trechos de Texto Estruturado
 │   └── sfc/                   # Grafcet/SFC
 ├── ons/
 │   └── simulador/             # script/planilha que gera tarifa e estados da rede
-├── scada/
-│   ├── projeto_scadabr/       # export do projeto
-│   └── telas/                 # prints das telas e dashboard
-├── factoryio/
-│   └── cena/                  # arquivo da cena + prints
-├── banco/
-│   └── sql/                   # scripts de criação de tabelas + queries de auditoria
-└── testes/
-    └── cenarios/              # roteiros de teste (ponta, fora de ponta, alerta)
+└─ factoryio/
+   └── cena/                  # arquivo da cena + prints
+
 ```
 
 ---
@@ -227,80 +201,17 @@ Cada fase segue a lógica **requisitos → decisões técnicas → diagramas →
 | T4.4 | Integrar decisão à sequência | A esteira só inicia a próxima peça se a decisão liberar |
 | T4.5 | Teste dos cenários | Validar comportamento em NORMAL, PONTA e ALERTA_DEMANDA |
 
-### Fase 5 — Supervisão SCADA + Banco SQL
+### Fase 5 — Integração e Testes de Ponta a Ponta
 | ID | Tarefa | Descrição |
 |----|--------|-----------|
-| T5.1 | Configurar datasource | Conectar ScadaBR ao CLP (Modbus) e ao banco SQL |
-| T5.2 | **Tela de operação** | Status da linha em tempo real (esteira, estação, sensores, contagem) |
-| T5.3 | **Dashboard energético** | Gráficos de consumo atual, tarifa, SOC, alarmes da ONS e progresso da OS |
-| T5.4 | Alarmes | Configurar alarme visual para PONTA/ALERTA e para pausa de produção |
-| T5.5 | **Histórico SQL** | Criar tabelas (produção, consumo, eventos ONS) e gravar os dados; queries de auditoria |
-| T5.6 | Teste do supervisório | Verificar atualização em tempo real e gravação no banco |
-
-### Fase 6 — Integração e Testes de Ponta a Ponta
-| ID | Tarefa | Descrição |
-|----|--------|-----------|
-| T6.1 | Teste integrado | Fluxo completo: OS → ONS → decisão → produção → SCADA → SQL → faturamento |
+| T6.1 | Teste integrado | Fluxo completo: OS → ONS → decisão → produção |
 | T6.2 | Roteiros de cenário | Executar e documentar: fora de ponta (produz da rede), ponta com bateria, alerta sem bateria (pausa) |
 | T6.3 | Ajustes finais | Corrigir bugs de comunicação/lógica encontrados na integração |
 
-### Fase 7 — Documentação e Apresentação
+### Fase 6 — Documentação e Apresentação
 | ID | Tarefa | Descrição |
 |----|--------|-----------|
 | T7.1 | Documento de requisitos | Consolidar a seção 3 expandida em `docs/requisitos` |
 | T7.2 | Documento de design | Arquitetura, decisões e diagramas em `docs/design` |
 | T7.3 | Slides finais | Visão macro (BPMN/OPM) + micro (CLP/SCADA) + demonstração dos cenários |
 | T7.4 | Gravar demonstração | Vídeo/prints da célula respondendo aos cenários da ONS |
-
----
-
-## 8. Divisão de Tarefas (3 integrantes)
-
-Sugestão de responsáveis principais — todos colaboram, mas cada um "lidera" uma frente. Ajustem conforme afinidade.
-
-| Frente | Responsável | Fases/Tarefas principais |
-|--------|-------------|--------------------------|
-| **A — Processo & Documentação** | Integrante 1 | Fase 1 (BPMN/OPM), Fase 7 (docs e slides), apoio na Fase 0 |
-| **B — CLP & Algoritmo** | Integrante 2 | Fases 3 e 4 (SFC, ST, decisão), integração com Factory IO |
-| **C — ONS, SCADA & Banco** | Integrante 3 | Fase 2 (simulador ONS), Fase 5 (telas, dashboard, SQL) |
-| **Todos** | — | Fase 0 (setup), Fase 6 (integração e testes), revisão cruzada |
-
-> Pontos que exigem trabalho conjunto: o **mapeamento de I/O** (B + C), a **integração da decisão na sequência** (B + C) e a **consistência BPMN ↔ implementação** (A + B + C).
-
----
-
-## 9. Entregáveis
-
-- [ ] **Documento de requisitos** (`docs/requisitos`)
-- [ ] **Documento de design** (`docs/design`)
-- [ ] **Diagramas BPMN** (fonte + exportado)
-- [ ] **Diagramas OPM** (OPD + OPL)
-- [ ] **Projeto Codesys** com ST e SFC
-- [ ] **Simulador da ONS**
-- [ ] **Cena Factory IO** integrada
-- [ ] **Projeto SCADA** (telas + dashboard + alarmes)
-- [ ] **Scripts SQL** + dados de histórico
-- [ ] **Roteiros de teste** dos 3 cenários
-- [ ] **Apresentação final** (slides + demonstração)
-
----
-
-## 10. Glossário
-
-| Termo | Significado |
-|-------|-------------|
-| **BPMN** | Business Process Model and Notation — notação para modelar o fluxo de negócio |
-| **OPM** | Object-Process Methodology — modela a arquitetura conceitual (objetos + processos). OPD = diagrama; OPL = texto |
-| **ONS** | Operador Nacional do Sistema Elétrico — opera a rede; aqui simulamos suas restrições/tarifas |
-| **Horário de Ponta** | Janela do dia com maior demanda e tarifa de energia mais cara |
-| **Resposta à Demanda** | Reduzir/deslocar consumo quando a rede está sobrecarregada |
-| **CLP** | Controlador Lógico Programável — executa a lógica de chão de fábrica |
-| **IEC 61131-3** | Norma das linguagens de programação de CLP (ST, SFC, LD, etc.) |
-| **ST** | Structured Text — linguagem textual (boa para cálculos e lógica de decisão) |
-| **SFC / Grafcet** | Sequential Function Chart — descreve sequências/etapas do processo |
-| **LD / Ladder** | Ladder Diagram — lógica de contatos para atuadores e sensores |
-| **SCADA** | Supervisory Control and Data Acquisition — supervisão e aquisição de dados |
-| **SOC** | State of Charge — estado de carga da bateria |
-| **Inversor** | Converte a energia (CC↔CA) entre painel/bateria e a célula |
-| **OS** | Ordem de Serviço — pedido de produção do cliente |
-| **Modbus TCP** | Protocolo de comunicação industrial usado para integrar Factory IO, CLP e SCADA |
