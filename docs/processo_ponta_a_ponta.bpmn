@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" id="Defs_1" targetNamespace="http://siai.ufscar/celula" exporter="bpmn-js (https://demo.bpmn.io)" exporterVersion="18.16.0">
+  <collaboration id="Collab_1">
+    <participant id="Part_Cliente" name="Cliente" />
+    <participant id="Part_ONS" name="ONS (simulada)" />
+    <participant id="Part_Celula" name="Célula de Manufatura Energeticamente Autônoma" processRef="Proc_Celula" />
+    <messageFlow id="mf2" name="tarifa + estado da rede" sourceRef="t_consultar" targetRef="Part_ONS" />
+    <messageFlow id="mf3" name="fatura / OS fechada" sourceRef="t_faturar" targetRef="Part_Cliente" />
+    <messageFlow id="mf1" name="Ordem de Serviço" sourceRef="Part_Cliente" targetRef="start" />
+  </collaboration>
+  <process id="Proc_Celula" isExecutable="false">
+    <laneSet id="LaneSet_1">
+      <lane id="Lane_C" name="Execução Física (CLP · SFC/Ladder)">
+        <flowNodeRef>t_bat</flowNodeRef>
+        <flowNodeRef>gw_merge</flowNodeRef>
+        <flowNodeRef>t_regprod</flowNodeRef>
+        <flowNodeRef>t_rede</flowNodeRef>
+        <flowNodeRef>Activity_0c8lx9s</flowNodeRef>
+        <childLaneSet id="LaneSet_07p4uqb" />
+      </lane>
+      <lane id="Lane_B" name="Controle Energético (CLP · ST)">
+        <flowNodeRef>t_timer</flowNodeRef>
+        <flowNodeRef>t_pausar</flowNodeRef>
+        <flowNodeRef>t_consultar</flowNodeRef>
+        <flowNodeRef>t_custo</flowNodeRef>
+        <flowNodeRef>gw_dec</flowNodeRef>
+      </lane>
+      <lane id="Lane_A" name="Gestão de Produção (Negócio)">
+        <flowNodeRef>gw_qtd</flowNodeRef>
+        <flowNodeRef>t_fechar</flowNodeRef>
+        <flowNodeRef>end</flowNodeRef>
+        <flowNodeRef>start</flowNodeRef>
+        <flowNodeRef>t_reg</flowNodeRef>
+        <flowNodeRef>t_faturar</flowNodeRef>
+      </lane>
+    </laneSet>
+    <dataStoreReference id="ds_sql" name="Histórico de Produção (SQL)" />
+    <task id="t_regprod" name="Registrar produção e consumo">
+      <incoming>Flow_0w2uorh</incoming>
+      <outgoing>f15</outgoing>
+    </task>
+    <exclusiveGateway id="gw_merge" name="Modo definido">
+      <incoming>f12</incoming>
+      <incoming>f11</incoming>
+      <outgoing>f13</outgoing>
+    </exclusiveGateway>
+    <sequenceFlow id="f13" sourceRef="gw_merge" targetRef="Activity_0c8lx9s" />
+    <task id="t_bat" name="Produzir da BATERIA">
+      <incoming>f8</incoming>
+      <outgoing>f12</outgoing>
+    </task>
+    <sequenceFlow id="f12" sourceRef="t_bat" targetRef="gw_merge" />
+    <sequenceFlow id="f11" sourceRef="t_rede" targetRef="gw_merge" />
+    <sequenceFlow id="fw" sourceRef="t_pausar" targetRef="t_timer" />
+    <sequenceFlow id="f9" name="Ponta/Alerta + SOC insuficiente" sourceRef="gw_dec" targetRef="t_pausar" />
+    <sequenceFlow id="f8" name="Ponta/Alerta + SOC suficiente" sourceRef="gw_dec" targetRef="t_bat" />
+    <sequenceFlow id="f7" name="Normal / fora de ponta" sourceRef="gw_dec" targetRef="t_rede" />
+    <sequenceFlow id="f6" sourceRef="t_custo" targetRef="gw_dec" />
+    <sequenceFlow id="f5" sourceRef="t_consultar" targetRef="t_custo" />
+    <sequenceFlow id="f10" name="Reavaliar" sourceRef="t_timer" targetRef="t_consultar" />
+    <endEvent id="end" name="OS concluída">
+      <incoming>f17</incoming>
+    </endEvent>
+    <sequenceFlow id="f17" sourceRef="t_faturar" targetRef="end" />
+    <task id="t_fechar" name="Fechar OS">
+      <incoming>f4</incoming>
+      <outgoing>f16</outgoing>
+    </task>
+    <sequenceFlow id="f16" sourceRef="t_fechar" targetRef="t_faturar" />
+    <exclusiveGateway id="gw_qtd" name="Peças produzidas &#60; qtd da OS?">
+      <incoming>f15</incoming>
+      <incoming>f2</incoming>
+      <outgoing>f4</outgoing>
+      <outgoing>f3</outgoing>
+    </exclusiveGateway>
+    <sequenceFlow id="f4" name="Não" sourceRef="gw_qtd" targetRef="t_fechar" />
+    <sequenceFlow id="f3" name="Sim" sourceRef="gw_qtd" targetRef="t_consultar" />
+    <sequenceFlow id="f15" name="Nova peça" sourceRef="t_regprod" targetRef="gw_qtd" />
+    <sequenceFlow id="f2" sourceRef="t_reg" targetRef="gw_qtd" />
+    <sequenceFlow id="f1" sourceRef="start" targetRef="t_reg" />
+    <startEvent id="start" name="OS recebida">
+      <outgoing>f1</outgoing>
+    </startEvent>
+    <task id="t_reg" name="Registrar OS">
+      <incoming>f1</incoming>
+      <outgoing>f2</outgoing>
+    </task>
+    <task id="t_faturar" name="Faturar OS">
+      <incoming>f16</incoming>
+      <outgoing>f17</outgoing>
+    </task>
+    <intermediateCatchEvent id="t_timer" name="aguardar Δt">
+      <incoming>fw</incoming>
+      <outgoing>f10</outgoing>
+      <timerEventDefinition />
+    </intermediateCatchEvent>
+    <task id="t_pausar" name="Pausar / enfileirar">
+      <incoming>f9</incoming>
+      <outgoing>fw</outgoing>
+    </task>
+    <task id="t_rede" name="Produzir da REDE">
+      <incoming>f7</incoming>
+      <outgoing>f11</outgoing>
+    </task>
+    <task id="t_consultar" name="Consultar estado ONS + tarifa">
+      <incoming>f10</incoming>
+      <incoming>f3</incoming>
+      <outgoing>f5</outgoing>
+    </task>
+    <task id="t_custo" name="Calcular custo por peça">
+      <incoming>f5</incoming>
+      <outgoing>f6</outgoing>
+    </task>
+    <exclusiveGateway id="gw_dec" name="Decisão energética">
+      <incoming>f6</incoming>
+      <outgoing>f9</outgoing>
+      <outgoing>f8</outgoing>
+      <outgoing>f7</outgoing>
+    </exclusiveGateway>
+    <task id="Activity_0c8lx9s" name="Ciclo físico (usinar → inspecionar → separar)">
+      <incoming>f13</incoming>
+      <outgoing>Flow_0w2uorh</outgoing>
+    </task>
+    <sequenceFlow id="Flow_0w2uorh" sourceRef="Activity_0c8lx9s" targetRef="t_regprod" />
+    <association id="a1" sourceRef="t_regprod" targetRef="ds_sql" />
+  </process>
+  <bpmndi:BPMNDiagram id="Diag_1">
+    <bpmndi:BPMNPlane id="Plane_1" bpmnElement="Collab_1">
+      <bpmndi:BPMNShape id="di_Part_Cliente" bpmnElement="Part_Cliente" isHorizontal="true">
+        <dc:Bounds x="160" y="90" width="1740" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_Part_Celula" bpmnElement="Part_Celula" isHorizontal="true">
+        <dc:Bounds x="160" y="200" width="1740" height="510" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_Lane_C" bpmnElement="Lane_C" isHorizontal="true">
+        <dc:Bounds x="200" y="540" width="1700" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_Lane_B" bpmnElement="Lane_B" isHorizontal="true">
+        <dc:Bounds x="200" y="370" width="1700" height="170" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_Lane_A" bpmnElement="Lane_A" isHorizontal="true">
+        <dc:Bounds x="200" y="200" width="1700" height="170" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_gw_qtd" bpmnElement="gw_qtd" isMarkerVisible="true">
+        <dc:Bounds x="545" y="260" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="489" y="236.5" width="170" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_fechar" bpmnElement="t_fechar">
+        <dc:Bounds x="1365" y="245" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_end" bpmnElement="end">
+        <dc:Bounds x="1722" y="267" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1707" y="307" width="67" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_bat" bpmnElement="t_bat">
+        <dc:Bounds x="1195" y="585" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_gw_merge" bpmnElement="gw_merge" isMarkerVisible="true">
+        <dc:Bounds x="1375" y="600" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1365" y="576" width="70" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_start" bpmnElement="start">
+        <dc:Bounds x="253" y="267" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="240" y="303" width="62" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_reg" bpmnElement="t_reg">
+        <dc:Bounds x="367" y="245" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_faturar" bpmnElement="t_faturar">
+        <dc:Bounds x="1545" y="245" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_timer" bpmnElement="t_timer">
+        <dc:Bounds x="1572" y="437" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1561" y="473" width="58" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_pausar" bpmnElement="t_pausar">
+        <dc:Bounds x="1365" y="415" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_rede" bpmnElement="t_rede">
+        <dc:Bounds x="855" y="585" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_consultar" bpmnElement="t_consultar">
+        <dc:Bounds x="635" y="415" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_custo" bpmnElement="t_custo">
+        <dc:Bounds x="785" y="415" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_gw_dec" bpmnElement="gw_dec" isMarkerVisible="true">
+        <dc:Bounds x="1065" y="430" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1037" y="413" width="106" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_t_regprod" bpmnElement="t_regprod">
+        <dc:Bounds x="1655" y="585" width="110" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="di_ds_sql" bpmnElement="ds_sql">
+        <dc:Bounds x="1800" y="600" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1785" y="650" width="80" height="27" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0c8lx9s_di" bpmnElement="Activity_0c8lx9s">
+        <dc:Bounds x="1480" y="585" width="100" height="80" />
+        <bpmndi:BPMNLabel />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="di_f1" bpmnElement="f1">
+        <di:waypoint x="289" y="285" />
+        <di:waypoint x="367" y="285" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f2" bpmnElement="f2">
+        <di:waypoint x="477" y="285" />
+        <di:waypoint x="545" y="285" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f3" bpmnElement="f3">
+        <di:waypoint x="570" y="310" />
+        <di:waypoint x="570" y="362" />
+        <di:waypoint x="670" y="362" />
+        <di:waypoint x="670" y="415" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="611" y="348" width="19" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f4" bpmnElement="f4">
+        <di:waypoint x="595" y="285" />
+        <di:waypoint x="980" y="285" />
+        <di:waypoint x="980" y="285" />
+        <di:waypoint x="1365" y="285" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="963" y="271" width="21" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f5" bpmnElement="f5">
+        <di:waypoint x="745" y="455" />
+        <di:waypoint x="785" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f6" bpmnElement="f6">
+        <di:waypoint x="895" y="455" />
+        <di:waypoint x="1065" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f7" bpmnElement="f7">
+        <di:waypoint x="1090" y="480" />
+        <di:waypoint x="1090" y="520" />
+        <di:waypoint x="910" y="520" />
+        <di:waypoint x="910" y="585" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="934" y="506" width="129" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f8" bpmnElement="f8">
+        <di:waypoint x="1090" y="480" />
+        <di:waypoint x="1090" y="520" />
+        <di:waypoint x="1250" y="520" />
+        <di:waypoint x="1250" y="585" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1090" y="505" width="160" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f9" bpmnElement="f9">
+        <di:waypoint x="1115" y="455" />
+        <di:waypoint x="1365" y="455" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1180" y="440" width="187" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_fw" bpmnElement="fw">
+        <di:waypoint x="1475" y="455" />
+        <di:waypoint x="1572" y="455" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f10" bpmnElement="f10">
+        <di:waypoint x="1590" y="437" />
+        <di:waypoint x="1590" y="350" />
+        <di:waypoint x="710" y="350" />
+        <di:waypoint x="710" y="415" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1074" y="337" width="47" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f11" bpmnElement="f11">
+        <di:waypoint x="910" y="665" />
+        <di:waypoint x="910" y="680" />
+        <di:waypoint x="1400" y="680" />
+        <di:waypoint x="1400" y="650" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f12" bpmnElement="f12">
+        <di:waypoint x="1305" y="625" />
+        <di:waypoint x="1340" y="625" />
+        <di:waypoint x="1340" y="625" />
+        <di:waypoint x="1375" y="625" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f13" bpmnElement="f13">
+        <di:waypoint x="1425" y="625" />
+        <di:waypoint x="1480" y="625" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f15" bpmnElement="f15">
+        <di:waypoint x="1710" y="665" />
+        <di:waypoint x="1710" y="698" />
+        <di:waypoint x="540" y="698" />
+        <di:waypoint x="540" y="320" />
+        <di:waypoint x="555" y="295" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1621" y="683" width="53" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f16" bpmnElement="f16">
+        <di:waypoint x="1475" y="285" />
+        <di:waypoint x="1545" y="285" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_f17" bpmnElement="f17">
+        <di:waypoint x="1655" y="285" />
+        <di:waypoint x="1722" y="285" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_a1" bpmnElement="a1">
+        <di:waypoint x="1765" y="625" />
+        <di:waypoint x="1800" y="625" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_0w2uorh_di" bpmnElement="Flow_0w2uorh">
+        <di:waypoint x="1580" y="625" />
+        <di:waypoint x="1655" y="625" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNShape id="di_Part_ONS" bpmnElement="Part_ONS" isHorizontal="true">
+        <dc:Bounds x="160" y="730" width="1740" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="di_mf1" bpmnElement="mf1">
+        <di:waypoint x="271" y="150" />
+        <di:waypoint x="271" y="267" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="228" y="132" width="89" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_mf2" bpmnElement="mf2">
+        <di:waypoint x="690" y="495" />
+        <di:waypoint x="690" y="730" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="632" y="608" width="118" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="di_mf3" bpmnElement="mf3">
+        <di:waypoint x="1600" y="245" />
+        <di:waypoint x="1600" y="150" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1514" y="132.00000000000009" width="172" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</definitions>
