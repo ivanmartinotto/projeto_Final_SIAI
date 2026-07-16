@@ -8,23 +8,34 @@ Ações) e as expressões em ST para copiar nas transições/ações.
 > Ações de etapa usam qualificadores: `N` (não-armazenada, ativa enquanto a etapa
 > estiver ativa), `S` (set), `R` (reset), `P` (pulso).
 
+> **Cena Factory IO = "Sorting by height".** A cena não tem furadeira/prensa, então
+> a **usinagem não usa atuador físico**: é uma fase **temporizada** (`tmr_usina`) em
+> que a esteira para no ponto e `produzindo := TRUE` — é isso que faz o
+> `FB_GestaoEnergia` consumir energia. A inspeção reaproveita os **sensores de
+> altura** da cena (baixo = presença sob o leitor; alto = caixa alta). Assim a
+> decisão energética (pausar/bateria) continua tendo sentido sem um atuador de
+> usinagem. Sinais reais → ver `clp/Mapa_IO.md`.
+
 ---
 
 ## Variáveis (I/O) usadas — casar com o mapa de I/O (T3.1)
 
 | Nome | Tipo | Sentido | Significado |
 |------|------|---------|-------------|
-| `sensor_entrada` | BOOL | IN | Peça bruta presente na entrada |
-| `sensor_posicao` | BOOL | IN | Peça posicionada na estação de usinagem |
-| `sensor_qualidade` | BOOL | IN | TRUE = aprovada / FALSE = refugo |
-| `sensor_saida` | BOOL | IN | Peça chegou à saída/contagem |
+| `sensor_entrada` | BOOL | IN | Caixa presente na entrada |
+| `sensor_posicao` | BOOL | IN | Caixa parada no ponto de usinagem (sensor difuso do meio) |
+| `sensor_qualidade_presente` | BOOL | IN | Caixa sob o leitor de altura (sensor difuso baixo) |
+| `sensor_qualidade` | BOOL | IN | Caixa alta (sensor difuso alto): TRUE = aprovada / FALSE = refugo |
+| `sensor_saida` | BOOL | IN | Caixa chegou à saída/contagem |
 | `motor_esteira` | BOOL | OUT | Liga motor da esteira |
-| `atuador_usina` | BOOL | OUT | Aciona furadeira/prensa |
-| `desviador` | BOOL | OUT | Pistão separador (refugo) |
+| `desviador` | BOOL | OUT | Pistão/pusher separador (refugo) |
 | `libera_peca` | BOOL | IN | Vem do `PRG_Main` (decisão energética liberou) |
 | `produzindo` | BOOL | OUT | Informa ao FB de energia que está usinando |
 | `ciclo_concluido` | BOOL | OUT | Pulso ao concluir a peça (CLP conta/grava) |
-| `tmr_usina` | TON | — | Temporizador do tempo de ciclo da usinagem |
+| `tmr_usina` | TON | — | Temporizador da usinagem (substitui o atuador físico) |
+
+> Não há mais `atuador_usina`: a cena "Sorting by height" não tem furadeira. A
+> usinagem é 100% temporizada — esteira parada + `produzindo` durante `tmr_usina`.
 
 ---
 
@@ -42,15 +53,15 @@ Ações) e as expressões em ST para copiar nas transições/ações.
                 │ T1:  sensor_posicao
                 ▼
    ┌─────────────────────────┐
-   │ S2  USINAGEM             │  N: atuador_usina ; N: produzindo
-   │      (tmr_usina IN:=TRUE)│
+   │ S2  USINAGEM (temporiz.) │  esteira PARADA (motor OFF) ; N: produzindo
+   │      (tmr_usina IN:=TRUE)│  sem atuador — só o timer
    └────────────┬────────────┘
                 │ T2:  tmr_usina.Q      (tempo de ciclo cumprido)
                 ▼
    ┌─────────────────────────┐
-   │ S3  INSPECAO             │  N: motor_esteira  (leva ao sensor de qualidade)
+   │ S3  INSPECAO             │  N: motor_esteira  (leva ao sensor de altura)
    └────────────┬────────────┘
-                │ T3:  sensor_qualidade_lido   (peça sob o sensor)
+                │ T3:  sensor_qualidade_presente   (caixa sob o leitor de altura)
                 ▼
          ◇ divergência (ramo exclusivo) ◇
         /                               \
@@ -95,8 +106,8 @@ Ações) e as expressões em ST para copiar nas transições/ações.
 |------|---------|------|
 | S0 | N | `produzindo := FALSE; ciclo_concluido := FALSE;` |
 | S1 | N | `motor_esteira := TRUE;` |
-| S2 | N | `atuador_usina := TRUE; produzindo := TRUE; tmr_usina(IN:=TRUE, PT:=T#12s);` |
-| S3 | N | `motor_esteira := TRUE; atuador_usina := FALSE; produzindo := FALSE; tmr_usina(IN:=FALSE);` |
+| S2 | N | `motor_esteira := FALSE; produzindo := TRUE; tmr_usina(IN:=TRUE, PT:=T#12s);`  *(esteira parada = caixa sendo "usinada"; sem atuador)* |
+| S3 | N | `motor_esteira := TRUE; produzindo := FALSE; tmr_usina(IN:=FALSE);` |
 | S4 | N | `motor_esteira := TRUE;` |
 | S5 | N | `motor_esteira := TRUE; desviador := TRUE;` |
 | S6 | P | `ciclo_concluido := TRUE;`  *(pulso — CLP conta a peça e grava no SQL)* |

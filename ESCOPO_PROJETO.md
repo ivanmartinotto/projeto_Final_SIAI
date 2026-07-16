@@ -29,7 +29,7 @@ A "inteligência" do projeto está em uma regra simples: a célula só produz qu
 **O que entregamos no fim:**
 - Documento de requisitos e design
 - Diagramas BPMN e OPM
-- Código do CLP (ST + SFC/Ladder) e algoritmo de decisão
+- Código do CLP (ST + SFC) e algoritmo de decisão
 - Telas e dashboard SCADA + histórico em banco SQL
 - Planta simulada (Factory IO) integrada
 - Apresentação final
@@ -82,7 +82,7 @@ Uma peça bruta entra na esteira, passa por uma estação de processamento (que 
 
 | ID | Requisito |
 |----|-----------|
-| RNF01 | Programação do CLP em conformidade com a **IEC 61131-3** (ST para lógica/matemática; SFC e Ladder para sequência) |
+| RNF01 | Programação do CLP em conformidade com a **IEC 61131-3** (ST para lógica/matemática; SFC para sequência). Ladder descartado por redundância — o SFC já atende a exigência de linguagem de sequência |
 | RNF02 | Usar **softwares gratuitos/acadêmicos**: Factory IO, Codesys, ScadaBR (ou Elipse) |
 | RNF03 | A simulação de tarifa/ONS deve permitir **trocar de cenário** facilmente (ponta/fora de ponta/alerta) para demonstração |
 | RNF04 | O sistema deve responder a um alerta da ONS em **tempo de ciclo curto** (pausar/migrar antes de iniciar a próxima peça) |
@@ -131,7 +131,7 @@ Fluxo de informação entre as camadas:
   +---------------------------------------------------+
   |  CLP (Codesys)                                     |
   |  - ST: cálculo de custo/peça, decisão energética   |
-  |  - SFC/Ladder: sequência da esteira                |
+  |  - SFC: sequência da esteira                       |
   |  - Gestão rede/bateria (SOC)                       |
   +---------------------------------------------------+
         |  Modbus TCP                  ^   Modbus TCP
@@ -165,8 +165,7 @@ Fluxo de informação entre as camadas:
 ├── clp/
 │   ├── projeto_codesys/       # projeto Codesys
 │   ├── st/                    # trechos de Texto Estruturado
-│   ├── sfc/                   # Grafcet/SFC
-│   └── ladder/                # diagramas Ladder
+│   └── sfc/                   # Grafcet/SFC
 ├── ons/
 │   └── simulador/             # script/planilha que gera tarifa e estados da rede
 ├── scada/
@@ -215,7 +214,7 @@ Cada fase segue a lógica **requisitos → decisões técnicas → diagramas →
 |----|--------|-----------|
 | T3.1 | Mapear I/O | Lista de sensores/atuadores e endereços Modbus entre Factory IO e Codesys |
 | T3.2 | **SFC (Grafcet)** da esteira | Sequência: alimentação → transporte → usinagem → inspeção → separação → contagem |
-| T3.3 | Converter SFC → **Ladder** | Implementar a lógica de atuadores/sensores em LD |
+| ~~T3.3~~ | ~~Converter SFC → Ladder~~ | **Removido** — Ladder redundante com o SFC (RNF01 já atendido) |
 | T3.4 | Integrar com Factory IO | Conectar via Modbus e validar movimento da linha |
 | T3.5 | Teste da sequência | Rodar um ciclo completo de peça (aprovada e reprovada) |
 
@@ -262,7 +261,7 @@ Sugestão de responsáveis principais — todos colaboram, mas cada um "lidera" 
 | Frente | Responsável | Fases/Tarefas principais |
 |--------|-------------|--------------------------|
 | **A — Processo & Documentação** | Integrante 1 | Fase 1 (BPMN/OPM), Fase 7 (docs e slides), apoio na Fase 0 |
-| **B — CLP & Algoritmo** | Integrante 2 | Fases 3 e 4 (SFC, Ladder, ST, decisão), integração com Factory IO |
+| **B — CLP & Algoritmo** | Integrante 2 | Fases 3 e 4 (SFC, ST, decisão), integração com Factory IO |
 | **C — ONS, SCADA & Banco** | Integrante 3 | Fase 2 (simulador ONS), Fase 5 (telas, dashboard, SQL) |
 | **Todos** | — | Fase 0 (setup), Fase 6 (integração e testes), revisão cruzada |
 
@@ -276,7 +275,7 @@ Sugestão de responsáveis principais — todos colaboram, mas cada um "lidera" 
 - [ ] **Documento de design** (`docs/design`)
 - [ ] **Diagramas BPMN** (fonte + exportado)
 - [ ] **Diagramas OPM** (OPD + OPL)
-- [ ] **Projeto Codesys** com ST, SFC e Ladder
+- [ ] **Projeto Codesys** com ST e SFC
 - [ ] **Simulador da ONS**
 - [ ] **Cena Factory IO** integrada
 - [ ] **Projeto SCADA** (telas + dashboard + alarmes)
